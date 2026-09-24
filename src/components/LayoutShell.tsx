@@ -54,7 +54,9 @@ function LayoutShellContent({ children }: { children: React.ReactNode }) {
     }
   }, [pathname]);
 
-  const isPublicOrAuthRoute = pathname === '/' || pathname === '/login' || pathname?.startsWith('/public') || pathname?.startsWith('/auth') || pathname?.startsWith('/display') || pathname?.startsWith('/draws/print-preview') || pathname?.startsWith('/registration');
+  // Normalize pathname to handle trailing slashes from static hosts (e.g. /login/ vs /login)
+  const normalizedPath = pathname?.endsWith('/') && pathname !== '/' ? pathname.slice(0, -1) : pathname;
+  const isPublicOrAuthRoute = normalizedPath === '/' || normalizedPath === '/login' || normalizedPath?.startsWith('/public') || normalizedPath?.startsWith('/auth') || normalizedPath?.startsWith('/display') || normalizedPath?.startsWith('/draws/print-preview') || normalizedPath?.startsWith('/registration');
 
   // Enforce Active Tournament Context
   const [isDbReady, setIsDbReady] = useState(isPublicOrAuthRoute);
