@@ -54,8 +54,11 @@ function LayoutShellContent({ children }: { children: React.ReactNode }) {
     }
   }, [pathname]);
 
-  // Normalize pathname to handle trailing slashes from static hosts (e.g. /login/ vs /login)
-  const normalizedPath = pathname?.endsWith('/') && pathname !== '/' ? pathname.slice(0, -1) : pathname;
+  // Normalize pathname to handle trailing slashes and .html extensions from static hosts
+  let normalizedPath = pathname || '/';
+  if (normalizedPath.endsWith('/') && normalizedPath !== '/') normalizedPath = normalizedPath.slice(0, -1);
+  if (normalizedPath.endsWith('.html')) normalizedPath = normalizedPath.slice(0, -5);
+
   const isPublicOrAuthRoute = normalizedPath === '/' || normalizedPath === '/login' || normalizedPath?.startsWith('/public') || normalizedPath?.startsWith('/auth') || normalizedPath?.startsWith('/display') || normalizedPath?.startsWith('/draws/print-preview') || normalizedPath?.startsWith('/registration');
 
   // Enforce Active Tournament Context
