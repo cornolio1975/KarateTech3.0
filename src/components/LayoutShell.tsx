@@ -59,7 +59,7 @@ function LayoutShellContent({ children }: { children: React.ReactNode }) {
   if (normalizedPath.endsWith('/') && normalizedPath !== '/') normalizedPath = normalizedPath.slice(0, -1);
   if (normalizedPath.endsWith('.html')) normalizedPath = normalizedPath.slice(0, -5);
 
-  const isPublicOrAuthRoute = normalizedPath === '/' || normalizedPath === '/login' || normalizedPath?.startsWith('/public') || normalizedPath?.startsWith('/auth') || normalizedPath?.startsWith('/display') || normalizedPath?.startsWith('/draws/print-preview') || normalizedPath?.startsWith('/registration');
+  const isPublicOrAuthRoute = normalizedPath === '/login' || normalizedPath?.startsWith('/public') || normalizedPath?.startsWith('/auth') || normalizedPath?.startsWith('/display') || normalizedPath?.startsWith('/draws/print-preview') || normalizedPath?.startsWith('/registration');
 
   // Enforce Active Tournament Context
   const [isDbReady, setIsDbReady] = useState(isPublicOrAuthRoute);
@@ -99,7 +99,7 @@ function LayoutShellContent({ children }: { children: React.ReactNode }) {
         clearTimeout(fallbackTimer);
 
         if (!activeDb) {
-          window.location.href = '/';
+          window.location.href = '/login';
         } else {
           setIsDbReady(true);
         }
