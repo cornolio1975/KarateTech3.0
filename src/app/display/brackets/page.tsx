@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { db, basePath } from '@/db/dbClient';
+import { db, basePath, dbManager, getActiveTournamentIdSync } from '@/db/dbClient';
 import { Bout, Participant, Club, Category, isKataCategory } from '@/db/types';
 import { SportdataBracket } from '@/components/SportdataBracket';
 
@@ -51,6 +51,10 @@ function BracketDisplayContent() {
   const loadData = async () => {
     try {
       setLoading(true);
+      const activeId = getActiveTournamentIdSync();
+      if (activeId) {
+        await dbManager.loadTournament(activeId);
+      }
       const [bList, pList, clList, catList] = await Promise.all([
         db.bouts.list(),
         db.participants.list(),
@@ -70,6 +74,10 @@ function BracketDisplayContent() {
 
   const fetchBoutsQuietly = async () => {
     try {
+      const activeId = getActiveTournamentIdSync();
+      if (activeId) {
+        await dbManager.loadTournament(activeId);
+      }
       const bList = await db.bouts.list();
       setBouts(bList);
     } catch (err) {
