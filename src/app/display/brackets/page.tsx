@@ -53,7 +53,7 @@ function BracketDisplayContent() {
       setLoading(true);
       const activeId = getActiveTournamentIdSync();
       if (activeId) {
-        await dbManager.loadTournament(activeId);
+        await dbManager.setActiveTournament(activeId);
       }
       const [bList, pList, clList, catList] = await Promise.all([
         db.bouts.list(),
@@ -76,7 +76,7 @@ function BracketDisplayContent() {
     try {
       const activeId = getActiveTournamentIdSync();
       if (activeId) {
-        await dbManager.loadTournament(activeId);
+        await dbManager.setActiveTournament(activeId);
       }
       const bList = await db.bouts.list();
       setBouts(bList);
