@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTournament } from '@/context/TournamentContext';
 import { db, describeError } from '@/db/dbClient';
 import { Participant, Club, Country, Category, Coach, Bout, isKataCategory, isKumiteCategory } from '@/db/types';
+import UpdateScmsButton from '@/components/UpdateScmsButton';
 import AddParticipantModal from '@/components/AddParticipantModal';
 import EditParticipantDrawer from '@/components/EditParticipantDrawer';
 import ImportModal from '@/components/ImportModal';
@@ -1112,6 +1113,7 @@ export function ParticipantsContent({ isClubMode, clubId }: ParticipantsContentP
                               >
                                 <Edit2 className="h-3.5 w-3.5" />
                               </button>
+                              {!isClubMode && <UpdateScmsButton participantId={p.id} name={p.full_name} />}
                               <button
                                 onClick={async (e) => {
                                   e.stopPropagation();
