@@ -16,7 +16,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "deploy": "node deploy-both.js"
+    "deploy": "node deploy-both.js",
+    "build:integration": "node scripts/build-integration.cjs"
   },
   "dependencies": {
     "@supabase/server": "^1.4.1",
