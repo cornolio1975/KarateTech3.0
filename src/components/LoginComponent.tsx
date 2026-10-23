@@ -633,7 +633,7 @@ export default function LoginComponent({
             <div className="flex items-center justify-between w-full pb-2 border-b border-white/5">
               <div className="flex items-center gap-2">
                 <a
-                  href="https://karatetech.spsportdatasolution.org/"
+                  href="https://karatetech3.spsportdatasolution.org/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-500/20 hover:bg-indigo-900/60 text-xs font-bold text-indigo-300 hover:text-white transition-all cursor-pointer group"
