@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useTournament } from '@/context/TournamentContext';
-import { OfficialsContent } from '@/app/officials/page';
+import { OfficialsContent } from '@/app/officials/Content';
 
 export default function ClubOfficialsPage() {
   const { clubId } = useTournament();

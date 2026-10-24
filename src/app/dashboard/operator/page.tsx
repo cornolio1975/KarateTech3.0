@@ -27,8 +27,8 @@ import {
   ChevronUp, ChevronDown, ChevronLeft, ZoomIn, ZoomOut, Tv, GripHorizontal, BookOpen,
   Palette, Camera, ChevronDown as ChevronDownIcon
 } from 'lucide-react';
-import { KumiteScoreboardControl, ScoreboardRef } from '../control/page';
-import { KataControlPanelContent } from '../kata-control/page';
+import { KumiteScoreboardControl, ScoreboardRef } from '../control/Content';
+import { KataControlPanelContent } from '../kata-control/Content';
 import { SportdataBracket } from '@/components/SportdataBracket';
 import KataListModal from '@/components/KataListModal';
 import EditParticipantDrawer from '@/components/EditParticipantDrawer';
