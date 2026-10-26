@@ -2,6 +2,10 @@ import { type NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/api/integration/scms/')) {
+    const { NextResponse } = await import('next/server');
+    return NextResponse.next();
+  }
   return await createClient(request);
 }
 

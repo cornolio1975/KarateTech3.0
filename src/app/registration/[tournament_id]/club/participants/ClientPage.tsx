@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useTournament } from '@/context/TournamentContext';
-import { ParticipantsContent } from '@/app/participants/page';
+import { ParticipantsContent } from '@/components/ParticipantsWorkspace';
 
 export default function ClubParticipantsPage() {
   const { clubId } = useTournament();
