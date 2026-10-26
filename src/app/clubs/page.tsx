@@ -15,7 +15,7 @@ export interface ClubsContentProps {
   clubId?: string;
 }
 
-export function ClubsContent({ isClubMode, clubId }: ClubsContentProps) {
+function ClubsContent({ isClubMode, clubId }: ClubsContentProps) {
   const { refreshKey, triggerRefresh, canModify: contextCanModify, userRole } = useTournament();
   const canModify = isClubMode && userRole === 'Club' ? true : contextCanModify;
 

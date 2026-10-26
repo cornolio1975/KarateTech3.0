@@ -30,7 +30,7 @@ try {
   console.log('\n2. Building for Hostinger (no basePath)...');
   cleanNextCache();
   sleep(2000);
-  execSync('node build-hostinger.js', { stdio: 'inherit' });
+  execSync('node build-hostinger-static.js', { stdio: 'inherit' });
 
   // Step 3: Package into dist.zip
   console.log('\n3. Packaging Hostinger build into dist.zip...');
@@ -39,7 +39,7 @@ try {
   } else {
     execSync('zip -r dist.zip out/*', { stdio: 'inherit' });
   }
-  console.log('✅ Hostinger build packaged in dist.zip successfully!');
+  console.log('✅ Frontend-only Hostinger build packaged in dist.zip. Athlete receiver APIs require npm run build:hostinger and Node.js hosting.');
   console.log('\n🎉 Both deployments prepared! Upload dist.zip to Hostinger and you are good to go!');
 } catch (error) {
   console.error('❌ Deployment process failed:', error);
