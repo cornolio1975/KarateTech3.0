@@ -1,4 +1,3 @@
-import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
@@ -24,12 +23,30 @@ export const getDbPath = () => {
 };
 
 const dbPath = getDbPath();
-export const localDb = new Database(dbPath);
 
-// Enable WAL mode for high performance concurrent reading and writing
-localDb.pragma('journal_mode = WAL');
-localDb.pragma('synchronous = NORMAL');
-localDb.pragma('foreign_keys = ON');
+let Database: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  Database = require('better-sqlite3');
+} catch {
+  Database = null;
+}
+
+export const localDb: any = Database
+  ? new Database(dbPath)
+  : {
+      pragma: () => {},
+      exec: () => {},
+      prepare: () => ({ run: () => ({ changes: 0, lastInsertRowid: 0 }), get: () => null, all: () => [] }),
+      transaction: (fn: any) => fn,
+    };
+
+if (Database) {
+  // Enable WAL mode for high performance concurrent reading and writing
+  localDb.pragma('journal_mode = WAL');
+  localDb.pragma('synchronous = NORMAL');
+  localDb.pragma('foreign_keys = ON');
+}
 
 // Initialize complete database schema
 export const initDb = () => {

@@ -24,7 +24,6 @@
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
     "@types/canvas-confetti": "^1.9.0",
-    "better-sqlite3": "^13.0.3",
     "canvas-confetti": "^1.9.4",
     "localforage": "^1.10.0",
     "lucide-react": "^1.22.0",
@@ -34,6 +33,9 @@
     "react-dom": "19.2.4",
     "react-easy-crop": "^6.2.3",
     "ws": "^8.21.3"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.12",
@@ -90,8 +92,5 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     }
-  },
-  "allowScripts": {
-    "better-sqlite3@13.0.3": true
   }
 }
