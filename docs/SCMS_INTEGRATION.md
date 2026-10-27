@@ -71,3 +71,26 @@ that production secrets and migrations have been configured.
 A clean server build also required moving reusable page implementations into
 components: Next.js rejects named component exports from `page.tsx`. Control
 panel markup, scoring behavior and red/blue competitor colors are unchanged.
+
+## Tournament registration receiver (separate from athlete intake)
+
+The Draft Registration Builder uses `POST /api/integration/scms/registration`.
+The participant-intake routes alone cannot serve this workflow. Apply
+`supabase/migrations/20261027120000_scms_registration.sql` to **KarateTech** after
+its receiver migration and existing tournament-isolation migrations. This adds
+a service-only receipt table and atomic `kt_register_scms_draft` function.
+
+The same bearer key and `SCMS_TOURNAMENT_ID` apply. SCMS loads actual categories
+from authenticated `GET /api/integration/scms/tournaments/{tournamentId}/categories`.
+Each selected athlete must already be synced to that tournament and the same
+SCMS club through athlete intake. Category assignments are validated against
+KarateTech's stored age, gender, weight, category capacity, and registration close
+date. A failure rolls back all assignments in that draft. No draws or scoring
+results are changed. A retry with the same key and selections returns the same
+persisted acknowledgement; changed selections with the old key return a conflict.
+
+After deploying, verify all three workflows independently: tournament discovery,
+athlete intake, and category registration. A healthy athlete receiver does not
+prove that tournament registration is deployed. Check an authorized test draft
+with real categories, retry it, and confirm one receipt and one assignment per
+athlete/category. Never count an HTML 200 response as API success.
