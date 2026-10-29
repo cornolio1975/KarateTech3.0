@@ -9,6 +9,10 @@ const dbStore = localforage.createInstance({
 });
 
 export const localStore = {
+  /** Local cache only: intake reads must never upload a stale competition snapshot. */
+  async cacheTournament(db: TournamentDatabase): Promise<void> {
+    await dbStore.setItem(`ktournament_${db.tournament.id}`, db);
+  },
   /**
    * Save a complete tournament database to IndexedDB and sync to Supabase.
    */

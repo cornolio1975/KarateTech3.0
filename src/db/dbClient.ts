@@ -7,6 +7,7 @@ import {
 } from './types';
 import * as pcActions from '@/app/actions/pcControl';
 import { desktopOverrides } from './desktopClient';
+import { refreshScmsIntake } from './scmsIntake';
 
 export const isDesktop = typeof window !== 'undefined' ? !!(window as any).isElectron : process.env.BUILD_TARGET === 'electron';
 
@@ -576,8 +577,19 @@ export const dbOriginal = {
   // 6. Participants
   participants: {
     list: async (): Promise<Participant[]> => {
-      // ISOLATION: When a tournament is loaded, read participants from that tournament's DB only.
+      // SCMS writes normalized rows, while opened tournaments use a JSON snapshot.
+      // Pull missing intake rows into this tournament only; never push cloud sync here.
       if (activeTournamentDb) {
+        if (supabase && (typeof navigator === 'undefined' || navigator.onLine)) {
+          const snapshot = activeTournamentDb;
+          try {
+            const added = await refreshScmsIntake(snapshot, supabase);
+            if (added) await localStore.cacheTournament(snapshot);
+          } catch (error) {
+            console.warn(describeError(error));
+            throw error;
+          }
+        }
         return mockStore.participants.list();
       }
       if (supabase) {
