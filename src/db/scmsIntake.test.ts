@@ -44,3 +44,12 @@ describe('SCMS intake into opened tournament snapshots', () => {
     expect(snapshot.participants).toEqual([]);
   });
 });
+
+it('refreshes only discipline flags on an existing received athlete', async () => {
+  const { snapshot, client } = fixture([{...athlete,isKumite:false,isKata:true}]);
+  const local={...athlete,isKumite:true,isKata:true,status:'Checked In',remarks:'Keep me'};
+  snapshot.participants=[local] as unknown as TournamentDatabase['participants'];
+  expect(await refreshScmsIntake(snapshot,client)).toBe(1);
+  expect(local).toMatchObject({isKumite:false,isKata:true,status:'Checked In',remarks:'Keep me'});
+  expect(await refreshScmsIntake(snapshot,client)).toBe(0);
+});

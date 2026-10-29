@@ -5,7 +5,15 @@ const db = new PGlite();
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ rpc: async (_name: string, args: any) => {
   try { const result = await db.query<{ result: any }>('select kt_receive_scms_participant($1::jsonb,$2::uuid) as result',[JSON.stringify(args.payload),args.target_tournament]); return { data: result.rows[0].result, error:null }; }
   catch { return { data:null, error:{code:'TEST_CONSTRAINT'} }; }
-} }) }));
+}, from: () => ({ update: (flags: any) => {
+  const filters: Record<string,string> = {};
+  const query = { eq(k: string,v: string) { filters[k]=v; return query; }, is() { return query; }, select() { return query; },
+    async single() { try {
+      const r = await db.query('update participants set "isKumite"=$1,"isKata"=$2 where id=$3 and tournament_id=$4 and deleted_at is null returning id,"isKumite","isKata"', [flags.isKumite,flags.isKata,filters.id,filters.tournament_id]);
+      return {data:r.rows[0],error:null};
+    } catch { return {data:null,error:{code:'TEST_WRITE_FAILED'}}; } }
+  }; return query;
+} }) }) }));
 import { POST } from '@/app/api/integration/scms/participants/route';
 const tournament = '11111111-1111-4111-8111-111111111111';
 const p = { scms_participant_id:'athlete-1', full_name:'Test Athlete', gender:'Female', dob:'2004-02-29', passport_ic:'TEST-001', weight:55, height:165, scms_club_id:'club-1', club_name:'Test Club' };
@@ -19,6 +27,7 @@ beforeAll(async () => {
   const schema = (await readFile('supabase_schema.sql','utf8')).replace('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";','');
   await db.exec(schema);
   await db.exec('ALTER TABLE participants ADD COLUMN tournament_id uuid REFERENCES tournaments(id);');
+  await db.exec(await readFile('supabase/migrations/20260729051756_add_kumite_kata_columns.sql','utf8'));
   await db.query("INSERT INTO tournaments(id,name,organizer,date,date_iso,venue,city,registration_close,registration_close_iso) VALUES($1,'Test','Test','2027-01-01','2027-01-01','Test','Test','2026-12-31','2026-12-31')",[tournament]);
   await db.exec(await readFile('supabase/migrations/20261027090000_scms_receiver.sql','utf8'));
 }, 30000);
@@ -53,4 +62,21 @@ it('serves the authenticated SCMS HTTP contract with confirmed IDs and per-athle
   expect(created.status).toBe(200); const confirmed = await created.json(); expect(confirmed.success).toBe(true); expect(confirmed.karate_participant_id).toMatch(/^[0-9a-f-]{36}$/);
   const retried = await POST(request({...p,scms_participant_id:'http-1',full_name:'HTTP Athlete',passport_ic:'HTTP-001'})); expect((await retried.json()).karate_participant_id).toBe(confirmed.karate_participant_id);
   expect((await POST(request({...p,scms_participant_id:'http-duplicate',full_name:'HTTP Athlete',passport_ic:'HTTP-001'}))).status).toBe(409);
+});
+
+it.each([['Both',true,true],['Kumite',true,false],['Kata',false,true]])('persists %s flags and updates a retry without assigning categories', async (discipline,isKumite,isKata) => {
+  vi.stubEnv('SCMS_TOURNAMENT_ID',tournament); vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','https://test.example'); vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY','test-key');
+  const { receiveParticipant } = await import('../scms');
+  const result = await receiveParticipant({...p,scms_participant_id:'discipline-test',full_name:'Discipline Test',passport_ic:'DISC-TEST',discipline,isKumite,isKata});
+  expect(result.success).toBe(true);
+  const rows = await db.query('select "isKumite","isKata" from participants where id=$1',[result.karate_participant_id]);
+  expect(rows.rows[0]).toEqual({isKumite,isKata});
+  const categories = await db.query('select * from participant_categories where participant_id=$1',[result.karate_participant_id]);
+  expect(categories.rows).toHaveLength(0);
+});
+it('blocks inactive discipline before writing an identity',async()=>{
+  const { receiveParticipant } = await import('../scms');
+  const result=await receiveParticipant({...p,scms_participant_id:'inactive-test',discipline:'Non-Active',isKumite:false,isKata:false});
+  expect(result.success).toBe(false); expect(result.error).toContain('Non-active athlete');
+  const rows=await db.query('select * from kt_scms_participant_links where scms_participant_id=$1',['inactive-test']);expect(rows.rows).toHaveLength(0);
 });

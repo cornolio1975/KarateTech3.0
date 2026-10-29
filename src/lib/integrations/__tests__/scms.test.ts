@@ -9,3 +9,14 @@ describe('SCMS receiver input and authorization', () => {
   it('rejects missing or incorrect credentials', () => { vi.stubEnv('SCMS_API_KEY','test-secret'); expect(authorizeScms(new Request('https://example.test'))?.status).toBe(401); expect(authorizeScms(new Request('https://example.test',{headers:{Authorization:'Bearer wrong'}}))?.status).toBe(401); });
   it('accepts matching integration credentials', () => { vi.stubEnv('SCMS_API_KEY','test-secret'); expect(authorizeScms(new Request('https://example.test',{headers:{Authorization:'Bearer test-secret'}}))).toBeNull(); });
 });
+
+it.each([
+  {discipline:'Both',isKumite:true,isKata:true},
+  {discipline:'Kumite',isKumite:true,isKata:false},
+  {discipline:'Kata',isKumite:false,isKata:true},
+])('accepts consistent event flags %j', flags=>expect(validateParticipant({...athlete,...flags})).toBeNull());
+it.each([
+  {discipline:'Non-Active',isKumite:false,isKata:false},
+  {discipline:'Kata',isKumite:true,isKata:false},
+  {discipline:'Both',isKumite:'true',isKata:true},
+])('rejects inactive or inconsistent flags %j',flags=>expect(validateParticipant({...athlete,...flags})).toBeTruthy());

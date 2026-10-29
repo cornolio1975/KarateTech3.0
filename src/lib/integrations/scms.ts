@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { scmsDiscipline } from './scms-discipline';
 
 export function authorizeScms(request: Request): NextResponse | null {
   const expected = process.env.SCMS_API_KEY?.trim();
@@ -23,6 +24,7 @@ export function receiverDb() {
 export function validateParticipant(value: unknown): string | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return 'A participant object is required.';
   const p = value as Record<string, unknown>;
+  try { scmsDiscipline(p); } catch (error) { return error instanceof Error ? error.message : 'Invalid athlete discipline.'; }
   const limits: Record<string, number> = { scms_participant_id: 150, full_name: 200, passport_ic: 50, club_name: 150, email: 150, phone: 30, emergency_contact_name: 150, emergency_contact_phone: 30, scms_club_id: 150, club_id: 150 };
   for (const [field, limit] of Object.entries(limits)) {
     if (p[field] != null && (typeof p[field] !== 'string' || String(p[field]).length > limit)) return `Invalid ${field} (maximum ${limit} characters).`;
@@ -49,10 +51,24 @@ export function receiverTournament() {
 export async function receiveParticipant(p: Record<string, unknown>) {
   const invalid = validateParticipant(p);
   if (invalid) return { success: false, status: 'INVALID', scms_participant_id: p?.scms_participant_id, error: invalid };
-  const { data, error } = await receiverDb().rpc('kt_receive_scms_participant', { payload: p, target_tournament: receiverTournament() });
+  const db = receiverDb();
+  const tournament = receiverTournament();
+  const { data, error } = await db.rpc('kt_receive_scms_participant', { payload: p, target_tournament: tournament });
   if (error) {
     console.error('SCMS receiver database operation failed:', error.code);
     return { success: false, status: 'ERROR', scms_participant_id: p.scms_participant_id, error: 'Transfer could not be saved. Verify the receiver database migration and configuration.' };
+  }
+  const flags = scmsDiscipline(p);
+  if (data?.success && flags) {
+    // Do not acknowledge a complete transfer until the event selections are saved.
+    // The identity RPC is idempotent, so a failed flag write can be retried safely.
+    const { data: saved, error: saveError } = await db.from('participants').update(flags)
+      .eq('id', data.karate_participant_id).eq('tournament_id', tournament)
+      .is('deleted_at', null).select('id,isKumite,isKata').single();
+    if (saveError || !saved || saved.isKumite !== flags.isKumite || saved.isKata !== flags.isKata) {
+      return { success: false, status: 'ERROR', scms_participant_id: p.scms_participant_id,
+        error: 'Athlete identity saved, but discipline could not be confirmed. Retry this transfer.' };
+    }
   }
   return data;
 }

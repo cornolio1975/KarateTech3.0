@@ -16,13 +16,26 @@ export async function refreshScmsIntake(
   // Include local tombstones in this set so refresh cannot restore deleted athletes.
   // Existing competition-owned status, event selections and measurements stay intact.
   const knownIds = new Set((snapshot.participants || []).map(p => p.id));
+  let updated = 0;
   const additions: Participant[] = [];
   for (const row of data || []) {
     if (row.tournament_id !== tournamentId || row.deleted_at ||
-        !row.registration_no?.startsWith('SCMS-') || knownIds.has(row.id)) continue;
+        !row.registration_no?.startsWith('SCMS-')) continue;
+    if (knownIds.has(row.id)) {
+      const local = snapshot.participants.find(p => p.id === row.id);
+      // Old imports had both flags false. Only sync an explicit active selection.
+      if (local && !local.deleted_at && (row.isKumite === true || row.isKata === true) &&
+          typeof row.isKumite === 'boolean' && typeof row.isKata === 'boolean' &&
+          (local.isKumite !== row.isKumite || local.isKata !== row.isKata)) {
+        local.isKumite = row.isKumite;
+        local.isKata = row.isKata;
+        updated++;
+      }
+      continue;
+    }
     knownIds.add(row.id);
     additions.push(row as Participant);
   }
   if (additions.length) snapshot.participants = [...(snapshot.participants || []), ...additions];
-  return additions.length;
+  return additions.length + updated;
 }
