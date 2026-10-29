@@ -13,7 +13,7 @@ function LayoutShellContent({ children }: { children: React.ReactNode }) {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const { isLoggedIn, userRole } = useTournament();
+  const { isLoggedIn, isAuthInitialized, userRole } = useTournament();
 
   // Auto-minimize sidebar on mobile or on control page: start closed on small screens
   useEffect(() => {
@@ -61,11 +61,14 @@ function LayoutShellContent({ children }: { children: React.ReactNode }) {
 
   const isPublicOrAuthRoute = normalizedPath === '/login' || normalizedPath?.startsWith('/public') || normalizedPath?.startsWith('/auth') || normalizedPath?.startsWith('/display') || normalizedPath?.startsWith('/draws/print-preview') || normalizedPath?.startsWith('/registration');
 
+  // The tournament selector must be reachable before a tournament is open.
+  const requiresActiveTournament = !isPublicOrAuthRoute && normalizedPath !== '/';
+
   // Enforce Active Tournament Context
-  const [isDbReady, setIsDbReady] = useState(isPublicOrAuthRoute);
+  const [isDbReady, setIsDbReady] = useState(!requiresActiveTournament);
 
   useEffect(() => {
-    if (isPublicOrAuthRoute) return;
+    if (!requiresActiveTournament || !isAuthInitialized || !isLoggedIn) return;
 
     let isMounted = true;
 
@@ -99,7 +102,7 @@ function LayoutShellContent({ children }: { children: React.ReactNode }) {
         clearTimeout(fallbackTimer);
 
         if (!activeDb) {
-          window.location.href = '/login';
+          window.location.replace('/');
         } else {
           setIsDbReady(true);
         }
@@ -122,7 +125,7 @@ function LayoutShellContent({ children }: { children: React.ReactNode }) {
       isMounted = false; 
       clearTimeout(fallbackTimer);
     };
-  }, [pathname, isPublicOrAuthRoute]);
+  }, [pathname, requiresActiveTournament, isAuthInitialized, isLoggedIn]);
 
   // If public or auth route, render directly without admin frame
   if (isPublicOrAuthRoute) {
@@ -136,7 +139,7 @@ function LayoutShellContent({ children }: { children: React.ReactNode }) {
   }
 
   // Prevent rendering anything until mounted to avoid hydration mismatch on isLoggedIn
-  if (!mounted) {
+  if (!mounted || !isAuthInitialized) {
     return (
        <div className="flex items-center justify-center h-screen bg-background text-foreground">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
@@ -150,7 +153,7 @@ function LayoutShellContent({ children }: { children: React.ReactNode }) {
   }
 
   // Prevent rendering protected admin routes until DB is loaded into memory
-  if (!isPublicOrAuthRoute && !isDbReady) {
+  if (requiresActiveTournament && !isDbReady) {
     return (
        <div className="flex items-center justify-center h-screen bg-background text-foreground">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
