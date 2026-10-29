@@ -53,3 +53,18 @@ it('refreshes only discipline flags on an existing received athlete', async () =
   expect(local).toMatchObject({isKumite:false,isKata:true,status:'Checked In',remarks:'Keep me'});
   expect(await refreshScmsIntake(snapshot,client)).toBe(0);
 });
+
+it('refreshes latest SCMS details on the same athlete without changing competition state', async () => {
+  const { snapshot, client } = fixture([{...athlete, full_name:'Latest Name', passport_ic:'010203-04-5678',
+    dob:'2001-02-03', weight:62, height:172, phone:'0123456789', email:null, isKumite:true,isKata:false}]);
+  const local={...athlete, full_name:'Old Name', weight:55, email:'old@example.test',
+    status:'Checked In', payment_status:'Paid', medical_status:'Cleared', remarks:'Keep me'};
+  snapshot.participants=[local] as unknown as TournamentDatabase['participants'];
+  const categories=snapshot.participant_categories;
+  expect(await refreshScmsIntake(snapshot,client)).toBe(1);
+  expect(snapshot.participants).toHaveLength(1);
+  expect(local).toMatchObject({full_name:'Latest Name',weight:62,height:172,email:null,
+    isKumite:true,isKata:false,status:'Checked In',payment_status:'Paid',medical_status:'Cleared',remarks:'Keep me'});
+  expect(snapshot.participant_categories).toBe(categories);
+  expect(await refreshScmsIntake(snapshot,client)).toBe(0);
+});

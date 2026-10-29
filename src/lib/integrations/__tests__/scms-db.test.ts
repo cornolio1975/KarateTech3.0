@@ -30,6 +30,7 @@ beforeAll(async () => {
   await db.exec(await readFile('supabase/migrations/20260729051756_add_kumite_kata_columns.sql','utf8'));
   await db.query("INSERT INTO tournaments(id,name,organizer,date,date_iso,venue,city,registration_close,registration_close_iso) VALUES($1,'Test','Test','2027-01-01','2027-01-01','Test','Test','2026-12-31','2026-12-31')",[tournament]);
   await db.exec(await readFile('supabase/migrations/20261027090000_scms_receiver.sql','utf8'));
+  await db.exec(await readFile('supabase/migrations/20261029233905_scms_update_by_ic.sql','utf8'));
 }, 30000);
 afterAll(async () => { vi.unstubAllEnvs(); await db.close(); });
 it('creates and retries without duplicate identities; preserves competition state', async () => {
@@ -38,8 +39,15 @@ it('creates and retries without duplicate identities; preserves competition stat
   const second = await receive({ ...p, weight:56 }); expect(second.karate_participant_id).toBe(first.karate_participant_id); expect(second.status).toBe('UPDATED');
   const rows = await db.query<any>('select * from participants where id=$1',[first.karate_participant_id]); expect(rows.rows[0].weight).toBe('56.00'); expect(rows.rows[0].status).toBe('Checked In'); expect(rows.rows[0].payment_status).toBe('Paid'); expect(rows.rows[0].remarks).toBe('Competition-owned note');
 });
-it('blocks duplicate identity under a different source ID', async () => {
-  const result = await receive({ ...p, scms_participant_id:'athlete-duplicate' }); expect(result.status).toBe('SUSPECTED_DUPLICATE'); expect(result.success).toBe(false);
+it('updates the same normalized IC under another source ID and preserves both aliases', async () => {
+  const first = await receive(p);
+  const result = await receive({ ...p, scms_participant_id:'athlete-duplicate', passport_ic:'test 001', full_name:'Updated Athlete', weight:60 });
+  expect(result.success).toBe(true); expect(result.status).toBe('UPDATED');
+  expect(result.karate_participant_id).toBe(first.karate_participant_id);
+  expect((await db.query("select * from participants where regexp_replace(upper(passport_ic), '[^A-Z0-9]', '', 'g') = 'TEST001'")).rows).toHaveLength(1);
+  const retry=await receive({...p,phone:'0123456789'});
+  expect(retry.karate_participant_id).toBe(first.karate_participant_id);
+  expect((await db.query('select * from kt_scms_participant_links')).rows).toHaveLength(2);
 });
 it('rolls back participant and identity link if a constraint fails', async () => {
   await expect(receive({ ...p, scms_participant_id:'rollback', passport_ic:'TEST-OTHER', full_name:'Different Athlete', nationality_code:'ZZZ' })).rejects.toThrow();
@@ -61,7 +69,8 @@ it('serves the authenticated SCMS HTTP contract with confirmed IDs and per-athle
   const created = await POST(request({...p,scms_participant_id:'http-1',full_name:'HTTP Athlete',passport_ic:'HTTP-001'}));
   expect(created.status).toBe(200); const confirmed = await created.json(); expect(confirmed.success).toBe(true); expect(confirmed.karate_participant_id).toMatch(/^[0-9a-f-]{36}$/);
   const retried = await POST(request({...p,scms_participant_id:'http-1',full_name:'HTTP Athlete',passport_ic:'HTTP-001'})); expect((await retried.json()).karate_participant_id).toBe(confirmed.karate_participant_id);
-  expect((await POST(request({...p,scms_participant_id:'http-duplicate',full_name:'HTTP Athlete',passport_ic:'HTTP-001'}))).status).toBe(409);
+  const alias = await POST(request({...p,scms_participant_id:'http-duplicate',full_name:'HTTP Athlete Updated',passport_ic:'http 001'}));
+  expect(alias.status).toBe(200); expect((await alias.json()).karate_participant_id).toBe(confirmed.karate_participant_id);
 });
 
 it.each([['Both',true,true],['Kumite',true,false],['Kata',false,true]])('persists %s flags and updates a retry without assigning categories', async (discipline,isKumite,isKata) => {
@@ -79,4 +88,17 @@ it('blocks inactive discipline before writing an identity',async()=>{
   const result=await receiveParticipant({...p,scms_participant_id:'inactive-test',discipline:'Non-Active',isKumite:false,isKata:false});
   expect(result.success).toBe(false); expect(result.error).toContain('Non-active athlete');
   const rows=await db.query('select * from kt_scms_participant_links where scms_participant_id=$1',['inactive-test']);expect(rows.rows).toHaveLength(0);
+});
+
+it('does not redirect a mapped source to another athlete with a conflicting IC',async()=>{
+  const one=await receive({...p,scms_participant_id:'conflict-one',full_name:'Conflict One',passport_ic:'CONFLICT-1'});
+  const two=await receive({...p,scms_participant_id:'conflict-two',full_name:'Conflict Two',passport_ic:'CONFLICT-2'});
+  const result=await receive({...p,scms_participant_id:'conflict-one',full_name:'Changed',passport_ic:'CONFLICT-2'});
+  expect(result.success).toBe(false);
+  expect(result.status).toBe('SUSPECTED_DUPLICATE');
+  const rows=await db.query('select id,full_name from participants where id in ($1,$2) order by full_name',[one.karate_participant_id,two.karate_participant_id]);
+  expect(rows.rows.map((row:any)=>row.full_name)).toEqual(['Conflict One','Conflict Two']);
+});
+it('rejects an identity that normalizes to an empty value',async()=>{
+  await expect(receive({...p,scms_participant_id:'empty-ic',passport_ic:'---'})).rejects.toThrow('Invalid participant');
 });

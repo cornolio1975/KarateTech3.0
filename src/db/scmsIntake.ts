@@ -14,7 +14,7 @@ export async function refreshScmsIntake(
   if (error) throw new Error(`Unable to refresh SCMS intake: ${error.message}`);
 
   // Include local tombstones in this set so refresh cannot restore deleted athletes.
-  // Existing competition-owned status, event selections and measurements stay intact.
+  // Refresh source-owned details; competition state and local tombstones stay intact.
   const knownIds = new Set((snapshot.participants || []).map(p => p.id));
   let updated = 0;
   const additions: Participant[] = [];
@@ -23,13 +23,26 @@ export async function refreshScmsIntake(
         !row.registration_no?.startsWith('SCMS-')) continue;
     if (knownIds.has(row.id)) {
       const local = snapshot.participants.find(p => p.id === row.id);
-      // Old imports had both flags false. Only sync an explicit active selection.
-      if (local && !local.deleted_at && (row.isKumite === true || row.isKata === true) &&
-          typeof row.isKumite === 'boolean' && typeof row.isKata === 'boolean' &&
-          (local.isKumite !== row.isKumite || local.isKata !== row.isKata)) {
-        local.isKumite = row.isKumite;
-        local.isKata = row.isKata;
-        updated++;
+      if (local && !local.deleted_at) {
+        const fields = ['full_name', 'gender', 'dob', 'passport_ic', 'weight', 'height',
+          'email', 'phone', 'club_id', 'emergency_contact_name',
+          'emergency_contact_phone', 'nationality_code'] as const;
+        let changed = false;
+        for (const field of fields) {
+          if (Object.hasOwn(row, field) && local[field] !== row[field]) {
+            Object.assign(local, { [field]: row[field] });
+            changed = true;
+          }
+        }
+        // Ignore legacy empty flags; active transfers always have an explicit selection.
+        if ((row.isKumite === true || row.isKata === true) &&
+            typeof row.isKumite === 'boolean' && typeof row.isKata === 'boolean' &&
+            (local.isKumite !== row.isKumite || local.isKata !== row.isKata)) {
+          local.isKumite = row.isKumite;
+          local.isKata = row.isKata;
+          changed = true;
+        }
+        if (changed) updated++;
       }
       continue;
     }
